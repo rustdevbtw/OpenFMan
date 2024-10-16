@@ -31,21 +31,23 @@ jobs:
           go-version: ${{ matrix.go-version }}
 
       - name: Build (${{ matrix.os }}, ${{ matrix.arch }})
+        id: build
         env:
           GOARCH: ${{ matrix.arch }}
           GOOS: ${{ matrix.os == 'windows-latest' && 'windows' || matrix.os == 'macos-latest' && 'darwin' || 'linux' }}
         run: |
           # Determine output file name based on event type
           if [[ "${{ github.event_name }}" == "push" ]]; then
-            output_name="ofman-dev-${{ github.sha }}-${{ matrix.arch }}.${{ matrix.os == 'windows-latest' && 'exe' || 'bin' }}"
-            go build -ldflags "-X main.commit=${{ github.sha }} -X main.buildTime=$(date +%Y-%m-%dT%H:%M:%SZ) -X main.isDevVersion=true" -o $output_name
+            output_name="ofman-dev-${{ github.sha }}-${GOOS}-${{ matrix.arch }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}"
+            go build -ldflags "-X main.commit=${{ github.sha }} -X main.buildTime=$(date +%Y-%m-%dT%H:%M:%SZ) -X main.isDevVersion=true" -o "$output_name"
           else
-            output_name="ofman-v${{ github.event.inputs.version }}-${{ matrix.arch }}.${{ matrix.os == 'windows-latest' && 'exe' || 'bin' }}"
-            go build -ldflags "-X main.version=${{ github.event.inputs.version }} -X main.commit=${{ github.sha }} -X main.isDevVersion=false" -o $output_name
+            output_name="ofman-v${{ github.event.inputs.version }}-${GOOS}-${{ matrix.arch }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}"
+            go build -ldflags "-X main.version=${{ github.event.inputs.version }} -X main.commit=${{ github.sha }} -X main.isDevVersion=false" -o "$output_name"
           fi
+          echo "output_name=$output_name" >> $GITHUB_ENV
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event_name == 'push' && 'ofman-dev' || 'ofman' }}-${{ matrix.arch }}-${{ matrix.os }}
-          path: $output_name
+          name: ${{ env.output_name }}
+          path: ${{ env.output_name }}
