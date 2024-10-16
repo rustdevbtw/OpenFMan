@@ -16,8 +16,10 @@ var (
 func main() {
 	// Define command-line flags
 	var showVersion bool
+	var port int
 
 	flag.BoolVar(&showVersion, "version", false, "Show version information")
+	flag.IntVar(&port, "port", 3000, "Port to run the server on")
 
 	// Parse command-line flags
 	flag.Parse()
@@ -38,8 +40,8 @@ func main() {
 	r := gin.Default()
 	setupRoutes(r)
 
-	fmt.Println("OpenFMan Server listening on port 3000...")
-	if err := r.Run(":3000"); err != nil {
+	fmt.Printf("OpenFMan Server listening on port %d...\n", port)
+	if err := r.Run(fmt.Sprintf(":%d", port)); err != nil {
 		fmt.Println("Failed to start server:", err)
 	}
 }
