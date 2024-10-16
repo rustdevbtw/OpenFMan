@@ -1,0 +1,51 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number for the stable release'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        go-version: [1.23]
+        arch: [amd64, arm64]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Build (${{ matrix.os }}, ${{ matrix.arch }})
+        env:
+          GOARCH: ${{ matrix.arch }}
+          GOOS: ${{ matrix.os == 'windows-latest' && 'windows' || matrix.os == 'macos-latest' && 'darwin' || 'linux' }}
+        run: |
+          # Determine output file name based on event type
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            output_name="ofman-dev-${{ github.sha }}-${{ matrix.arch }}.${{ matrix.os == 'windows-latest' && 'exe' || 'bin' }}"
+            go build -ldflags "-X main.commit=${{ github.sha }} -X main.buildTime=$(date +%Y-%m-%dT%H:%M:%SZ) -X main.isDevVersion=true" -o $output_name
+          else
+            output_name="ofman-v${{ github.event.inputs.version }}-${{ matrix.arch }}.${{ matrix.os == 'windows-latest' && 'exe' || 'bin' }}"
+            go build -ldflags "-X main.version=${{ github.event.inputs.version }} -X main.commit=${{ github.sha }} -X main.isDevVersion=false" -o $output_name
+          fi
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event_name == 'push' && 'ofman-dev' || 'ofman' }}-${{ matrix.arch }}-${{ matrix.os }}
+          path: $output_name
