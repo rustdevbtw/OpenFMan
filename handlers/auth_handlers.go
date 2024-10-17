@@ -1,18 +1,35 @@
 package handlers
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 )
 
-// Auth middleware for password protection
+// Auth middleware for password protection using Bearer token with custom SHA-256 hashing
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Check session or authentication
-		session, err := c.Cookie("session_id")
-		if err != nil || session != "valid" {
+		// Get the token from the Authorization header
+		authHeader := c.GetHeader("Authorization")
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.Abort()
+			return
+		}
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+
+		// Get the plain password from config
+		password := viper.GetString("auth.password")
+
+		// Generate the expected token based on the custom hashing logic
+		expectedToken := generateToken(password)
+
+		// Compare the provided token with the expected token (deterministic comparison)
+		if token != expectedToken {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			c.Abort()
 			return
@@ -29,28 +46,20 @@ func AuthMiddleware() gin.HandlerFunc {
 	}
 }
 
-// Login handles simple password authentication
-func Login(c *gin.Context) {
-	var request struct {
-		Password string `json:"password"`
-	}
-	if err := c.BindJSON(&request); err != nil {
-		jsonError(c, http.StatusBadRequest, "Invalid request")
-		return
-	}
+// generateToken generates the SHA-256-hashed token for comparison based on the custom logic
+func generateToken(password string) string {
+	// First apply SHA-256 twice and concatenate "_pass" to the result
+	h1 := hashSHA256(password)
+	h2 := hashSHA256(h1)
+	s := "_pass" + h2
 
-	if request.Password != viper.GetString("auth.password") {
-		jsonError(c, http.StatusUnauthorized, "Invalid password")
-		return
-	}
-
-	// Set cookie for authentication
-	c.SetCookie("session_id", "valid", 3600, "/", "", false, true)
-	c.JSON(http.StatusOK, gin.H{"message": "Login successful"})
+	// Hash the final result deterministically using SHA-256 again
+	return hashSHA256(s)
 }
 
-// Logout handles user logout by clearing the session cookie
-func Logout(c *gin.Context) {
-	c.SetCookie("session_id", "", -1, "/", "", false, true) // Set max age to -1 to delete the cookie
-	c.JSON(http.StatusOK, gin.H{"message": "Logout successful"})
+// hashSHA256 returns the SHA-256 hash of a given string
+func hashSHA256(input string) string {
+	hash := sha256.New()
+	hash.Write([]byte(input))
+	return hex.EncodeToString(hash.Sum(nil))
 }

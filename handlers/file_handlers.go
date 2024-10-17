@@ -33,6 +33,10 @@ func ServeFile(c *gin.Context, path string) {
 // getFile handles GET requests for files
 func GetFile(c *gin.Context) {
 	filename := c.Param("filename")
+	if filename == "config.toml" {
+		jsonError(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
 	path := filepath.Join(".", filename)
 	ServeFile(c, path)
 }
@@ -47,6 +51,10 @@ func ListDirectory(c *gin.Context, dir string) {
 
 	var metaList []models.Meta
 	for _, entry := range entries {
+		if entry.Name() == "config.toml" {
+			continue
+		}
+
 		absPath, _ := filepath.Abs(filepath.Join(dir, entry.Name()))
 		info, _ := entry.Info()
 		meta := models.Meta{
@@ -80,6 +88,12 @@ func Listing(c *gin.Context) {
 // uploadFile handles file uploads
 func UploadFile(c *gin.Context) {
 	filename := c.Param("filename")
+
+	if filename == "config.toml" {
+		jsonError(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
 	path := filepath.Join(".", filename)
 
 	// Create all necessary parent directories
@@ -106,6 +120,12 @@ func UploadFile(c *gin.Context) {
 // deleteFile handles file deletions
 func DeleteFile(c *gin.Context) {
 	filename := c.Param("filename")
+
+	if filename == "config.toml" {
+		jsonError(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
 	path := filepath.Join(".", filename)
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -136,6 +156,11 @@ func RenameFile(c *gin.Context) {
 	newName := request.NewName
 	if newName == "" {
 		jsonError(c, http.StatusBadRequest, "New filename is required")
+		return
+	}
+
+	if oldName == "config.toml" || newName == "config.toml" {
+		jsonError(c, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
