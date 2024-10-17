@@ -46,6 +46,9 @@ func main() {
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Origin")
 		c.Writer.Header().Set("Access-Control-Expose-Headers", "Content-Length")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+		c.Writer.Header().Set("Pragma", "no-cache")
+		c.Writer.Header().Set("Expires", "0")
 
 		// If it's a preflight request (OPTIONS method), return immediately
 		if c.Request.Method == "OPTIONS" {
